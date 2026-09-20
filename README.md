@@ -487,21 +487,32 @@ GCS data is stored in the `floci-gcs-data` named volume. Pub/Sub state is in-mem
 ## Troubleshooting
 
 ### AWS: `InvalidClientTokenId` error
-You have real AWS credentials in `~/.aws/credentials` overriding Floci test credentials. Run:
-```bash
-eval $(bash aws/scripts/env.sh)
-```
-Then verify:
-```bash
-echo $AWS_ENDPOINT_URL $AWS_ACCESS_KEY_ID $AWS_PROFILE
-# expected: http://localhost:4566 test floci
-```
+You are either using AWS CLI v1 (which does not support the `AWS_ENDPOINT_URL` environment variable) or you have real AWS credentials in `~/.aws/credentials` overriding Floci test credentials.
+
+1. **If you are on AWS CLI v1:**
+   AWS CLI v1 does not support `AWS_ENDPOINT_URL`. You must pass the endpoint explicitly:
+   ```bash
+   aws sqs list-queues --endpoint-url=http://localhost:4566
+   ```
+   *Tip: Upgrade to AWS CLI v2 (`brew install awscli`) to use environment variables natively.*
+
+2. **If you are on AWS CLI v2:**
+   Make sure the environment variables are active in your current shell:
+   ```bash
+   eval $(bash aws/scripts/env.sh)
+   ```
+   Then verify:
+   ```bash
+   echo $AWS_ENDPOINT_URL $AWS_ACCESS_KEY_ID $AWS_PROFILE
+   # expected: http://localhost:4566 test floci
+   ```
 
 ### AWS: `aws s3 ls` returns nothing / hits real AWS
-The `AWS_ENDPOINT_URL` variable is not set. Run:
+On AWS CLI v2, the `AWS_ENDPOINT_URL` variable is not set. Run:
 ```bash
 eval $(bash aws/scripts/env.sh)
 ```
+On AWS CLI v1, you must pass `--endpoint-url=http://localhost:4566` with your commands.
 
 ### Azure: `ResourceNotFound` or connection refused
 The Azurite container is not running. Start it:
