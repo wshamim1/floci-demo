@@ -1,0 +1,43 @@
+services:
+  azurite:
+    image: mcr.microsoft.com/azure-storage/azurite:latest
+    container_name: floci-azure
+    command: azurite --blobHost 0.0.0.0 --queueHost 0.0.0.0 --tableHost 0.0.0.0 --loose --skipApiVersionCheck
+    ports:
+      - "10000:10000"   # Blob Storage
+      - "10001:10001"   # Queue Storage
+      - "10002:10002"   # Table Storage
+    volumes:
+      - ./data:/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "nc", "-z", "localhost", "10000"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
+
+# ── Usage ───────────────────────────────────────────────────────────────────
+#
+#  Docker:
+#    docker compose -f azure/docker-compose.yml up -d
+#    docker compose -f azure/docker-compose.yml logs -f azurite
+#    docker compose -f azure/docker-compose.yml down          # stop (data kept)
+#    docker compose -f azure/docker-compose.yml down -v       # stop + delete volume
+#
+#  Podman:
+#    export CONTAINER_SOCK=$(podman machine inspect \
+#      --format '{{.ConnectionInfo.PodmanSocket.Path}}')
+#    podman-compose -f azure/docker-compose.yml up -d
+#
+#  Connection strings:
+#    Blob  : DefaultEndpointsProtocol=http;AccountName=devstoreaccount1;AccountKey=<key>;BlobEndpoint=http://localhost:10000/devstoreaccount1
+#    Queue : DefaultEndpointsProtocol=http;AccountName=devstoreaccount1;AccountKey=<key>;QueueEndpoint=http://localhost:10001/devstoreaccount1
+#    Table : DefaultEndpointsProtocol=http;AccountName=devstoreaccount1;AccountKey=<key>;TableEndpoint=http://localhost:10002/devstoreaccount1
+#
+#  Shared Key (same for all Azurite installations):
+#    AccountName : devstoreaccount1
+#    AccountKey  : Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==
+#
+#  Or use the helper:
+#    eval $(bash azure/scripts/env.sh)

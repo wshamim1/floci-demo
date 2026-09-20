@@ -1,0 +1,52 @@
+services:
+  # ── GCS emulator — fake-gcs-server ──────────────────────────────────────────
+  gcs:
+    image: fsouza/fake-gcs-server:latest
+    container_name: floci-gcs
+    command: -scheme http -port 4443 -public-host localhost
+    ports:
+      - "4443:4443"    # GCS HTTP endpoint
+    volumes:
+      - gcs-data:/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:4443/storage/v1/b"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
+
+  # ── Pub/Sub emulator — Google Cloud SDK ─────────────────────────────────────
+  pubsub:
+    image: gcr.io/google.com/cloudsdktool/google-cloud-cli:emulators
+    container_name: floci-pubsub
+    command: gcloud beta emulators pubsub start --host-port=0.0.0.0:8085 --project=floci-project
+    ports:
+      - "8085:8085"    # Pub/Sub gRPC endpoint
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "nc", "-z", "localhost", "8085"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+volumes:
+  gcs-data:
+
+# ── Usage ───────────────────────────────────────────────────────────────────
+#
+#  Docker:
+#    docker compose -f gcp/docker-compose.yml up -d
+#    docker compose -f gcp/docker-compose.yml logs -f gcs
+#    docker compose -f gcp/docker-compose.yml logs -f pubsub
+#    docker compose -f gcp/docker-compose.yml down
+#
+#  Podman:
+#    podman-compose -f gcp/docker-compose.yml up -d
+#
+#  GCS endpoint  : http://localhost:4443
+#  Pub/Sub host  : localhost:8085
+#
+#  Set env vars (export in your shell):
+#    eval $(bash gcp/scripts/env.sh)
