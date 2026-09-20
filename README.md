@@ -135,6 +135,8 @@ The [`aws/examples/`](aws/examples/) folder contains self-contained, runnable ex
 | [`aws/examples/configure/`](aws/examples/configure/) | AWS CLI | All three credential/endpoint patterns |
 | [`aws/examples/s3/`](aws/examples/s3/) | S3 | Buckets, upload/download, list, delete |
 | [`aws/examples/sqs/`](aws/examples/sqs/) | SQS | Queues, single/batch send, receive, delete |
+| [`aws/examples/dynamodb/`](aws/examples/dynamodb/) | DynamoDB | Tables, put/get items, scan, delete |
+| [`aws/examples/secretsmanager/`](aws/examples/secretsmanager/) | Secrets Manager | Secrets, create/get values, list, delete |
 | [`aws/examples/lambda/`](aws/examples/lambda/) | Lambda | Deploy a Node.js function, sync/async invoke |
 | [`aws/examples/terraform/`](aws/examples/terraform/) | Terraform | Full `terraform apply` against Floci (S3 + SQS) |
 
