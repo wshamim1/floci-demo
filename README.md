@@ -138,6 +138,7 @@ The [`aws/examples/`](aws/examples/) folder contains self-contained, runnable ex
 | [`aws/examples/dynamodb/`](aws/examples/dynamodb/) | DynamoDB | Tables, put/get items, scan, delete |
 | [`aws/examples/secretsmanager/`](aws/examples/secretsmanager/) | Secrets Manager | Secrets, create/get values, list, delete |
 | [`aws/examples/eks/`](aws/examples/eks/) | EKS | Clusters, list, describe, Spark Job config |
+| [`aws/examples/ecs/`](aws/examples/ecs/) | ECS | Clusters, register task definitions, listing |
 | [`aws/examples/lambda/`](aws/examples/lambda/) | Lambda | Deploy a Node.js function, sync/async invoke |
 | [`aws/examples/terraform/`](aws/examples/terraform/) | Terraform | Full `terraform apply` against Floci (S3 + SQS) |
 
@@ -167,7 +168,37 @@ See [`aws/examples/README.md`](aws/examples/README.md) for prerequisites and usa
 | Access Key ID | `test` |
 | Secret Access Key | `test` |
 | Default Region | `us-east-1` |
-| Web UI | `http://localhost:4566/_floci/ui` |
+| Web UI (Default) | `http://localhost:4566/_floci/ui` (Port 4500) |
+| Web UI (Alternative - StackPort) | `http://localhost:8080` (Supports ECS/EKS) |
+
+#### How to run StackPort (Alternative UI on Port 8080)
+If you need to view containers (ECS, EKS, or Task Definitions) visually in the UI, you can spin up the StackPort community console:
+
+**For Docker:**
+```bash
+docker run -d \
+  --name floci-stackport \
+  -p 8080:8080 \
+  -e AWS_ENDPOINT_URL=http://host.docker.internal:4566 \
+  -e AWS_ACCESS_KEY_ID=test \
+  -e AWS_SECRET_ACCESS_KEY=test \
+  -e AWS_DEFAULT_REGION=us-east-1 \
+  davireis/stackport:latest
+```
+
+**For Podman:**
+```bash
+podman run -d \
+  --name floci-stackport \
+  -p 8080:8080 \
+  -e AWS_ENDPOINT_URL=http://host.containers.internal:4566 \
+  -e AWS_ACCESS_KEY_ID=test \
+  -e AWS_SECRET_ACCESS_KEY=test \
+  -e AWS_DEFAULT_REGION=us-east-1 \
+  davireis/stackport:latest
+```
+
+Access the dashboard at **`http://localhost:8080`**.
 
 ### Docker Compose (AWS)
 
