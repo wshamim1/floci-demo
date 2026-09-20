@@ -1,6 +1,12 @@
-# Floci — Local AWS Emulator
+# Floci — Local Cloud Emulator
 
-Floci runs a local AWS-compatible endpoint on **http://localhost:4566**, letting you develop and test S3, SQS, Lambda, DynamoDB, and more without touching a real AWS account.
+Floci runs local emulators for **AWS**, **Azure**, and **GCP**, letting you develop and test cloud services without touching a real cloud account.
+
+| Cloud | Emulator | Endpoint(s) | Services |
+|-------|----------|-------------|---------|
+| AWS | LocalStack (Floci) | `http://localhost:4566` | S3, SQS, Lambda, DynamoDB, and more |
+| Azure | Azurite | `:10000` / `:10001` / `:10002` | Blob, Queue, Table Storage |
+| GCP | fake-gcs-server + Pub/Sub emulator | `:4443` / `:8085` | Cloud Storage, Pub/Sub |
 
 ---
 
@@ -10,91 +16,42 @@ Floci runs a local AWS-compatible endpoint on **http://localhost:4566**, letting
 |------|----------------|-------|
 | macOS | 12 Monterey+ | arm64 or x86_64 |
 | Docker Desktop **or** Podman | Latest stable | One runtime is enough |
-| AWS CLI | v2 | `brew install awscli` |
+| AWS CLI | v2 | `brew install awscli` — for AWS only |
+| Azure CLI | Latest | `brew install azure-cli` — for Azure only |
+| Google Cloud SDK | Latest | `brew install --cask google-cloud-sdk` — for GCP only |
 
 ---
 
-## Quick Start
+## AWS
 
-### 1. Install dependencies
+### Quick Start
 
 ```bash
+# 1. Install dependencies (Docker/Podman + AWS CLI + Floci image)
 bash aws/scripts/install.sh
-```
 
-The script auto-detects Docker or Podman. Force a specific runtime with `--docker` or `--podman`.
-
-### 2. Start Floci
-
-```bash
+# 2. Start Floci
 bash aws/scripts/start.sh
+
+# 3. Set environment variables
+eval $(bash aws/scripts/env.sh)
+
+# 4. Verify
+aws s3 ls
 ```
 
 Floci will be available at **http://localhost:4566** within ~1 second.
 
-### 3. Set environment variables
+> **Tip — make it permanent:** Add the exports from `eval $(bash aws/scripts/env.sh)` to `~/.zshrc` so they are set automatically in every new terminal.
 
-Every terminal that uses the AWS CLI must point at the local endpoint. Run once per session:
-
-```bash
-eval $(bash aws/scripts/env.sh)
-```
-
-Or export them manually:
-
-```bash
-export AWS_ENDPOINT_URL=http://localhost:4566
-export AWS_ACCESS_KEY_ID=test
-export AWS_SECRET_ACCESS_KEY=test
-export AWS_DEFAULT_REGION=us-east-1
-export AWS_PROFILE=floci
-```
-
-> **Tip — make it permanent:** Add all five `export` lines above to `~/.zshrc` (or `~/.bashrc`) so they are set automatically in every new terminal. This is strongly recommended — without `AWS_PROFILE=floci`, the AWS CLI will use the real credentials in `~/.aws/credentials` and return `InvalidClientTokenId` errors even when `AWS_ENDPOINT_URL` is set.
-
-### 4. Verify
-
-```bash
-aws s3 ls
-```
-
-You should see a list of any existing buckets (empty on a fresh install).
-
----
-
-## Examples
-
-The [`aws/examples/`](aws/examples/) folder contains self-contained, runnable examples for every supported service:
-
-| Directory | Service | What it covers |
-|-----------|---------|----------------|
-| [`aws/examples/configure/`](aws/examples/configure/) | AWS CLI | All three credential/endpoint patterns |
-| [`aws/examples/s3/`](aws/examples/s3/) | S3 | Buckets, upload/download, list, delete |
-| [`aws/examples/sqs/`](aws/examples/sqs/) | SQS | Queues, single/batch send, receive, delete |
-| [`aws/examples/lambda/`](aws/examples/lambda/) | Lambda | Deploy a Node.js function, sync/async invoke |
-| [`aws/examples/terraform/`](aws/examples/terraform/) | Terraform | Full `terraform apply` against Floci (S3 + SQS) |
-
-See [`aws/examples/README.md`](aws/examples/README.md) for prerequisites and usage.
-
----
-
-## Web UI
-
-Open **http://localhost:4566/_floci/ui** in your browser for the Cloud Explorer — a visual dashboard of all local AWS resources.
-
----
-
-## AWS CLI Usage
+### AWS CLI Usage
 
 > ⚠️ **Before running any AWS CLI command**, make sure the environment variables are set in your current terminal:
 > ```bash
 > eval $(bash aws/scripts/env.sh)
 > ```
-> If you skip this step the CLI will target real AWS and return `InvalidClientTokenId` or `NoSuchBucket` errors.
 
-> **Important:** always use the `s3://` URI scheme when referring to a bucket or object — `aws s3 ls s3://my-bucket`, not `aws s3 ls my-bucket`.
-
-### S3
+#### S3
 
 ```bash
 # List all buckets
@@ -106,7 +63,7 @@ aws s3 mb s3://my-bucket
 # Upload a file
 aws s3 cp ./file.txt s3://my-bucket/file.txt
 
-# List objects inside a bucket  ← note s3://bucket-name, NOT just bucket-name
+# List objects  ← note s3://bucket-name, NOT just bucket-name
 aws s3 ls s3://my-bucket
 
 # Download a file
@@ -116,20 +73,20 @@ aws s3 cp s3://my-bucket/file.txt ./file.txt
 aws s3 rb s3://my-bucket --force
 ```
 
-### SQS
+#### SQS
 
 ```bash
 # Create a queue
 aws sqs create-queue --queue-name my-queue
 
-# Send a message (single line — avoids shell continuation issues)
+# Send a message
 aws sqs send-message --queue-url http://localhost:4566/000000000000/my-queue --message-body "hello"
 
 # Receive a message
 aws sqs receive-message --queue-url http://localhost:4566/000000000000/my-queue --max-number-of-messages 1
 ```
 
-### DynamoDB
+#### DynamoDB
 
 ```bash
 # Create a table
@@ -150,7 +107,7 @@ aws dynamodb get-item \
   --key '{"id":{"S":"1"}}'
 ```
 
-### Lambda
+#### Lambda
 
 ```bash
 # Create a function (Node.js 20)
@@ -169,9 +126,21 @@ aws lambda invoke \
   response.json && cat response.json
 ```
 
----
+### AWS Examples
 
-## Scripts Reference
+The [`aws/examples/`](aws/examples/) folder contains self-contained, runnable examples:
+
+| Directory | Service | What it covers |
+|-----------|---------|----------------|
+| [`aws/examples/configure/`](aws/examples/configure/) | AWS CLI | All three credential/endpoint patterns |
+| [`aws/examples/s3/`](aws/examples/s3/) | S3 | Buckets, upload/download, list, delete |
+| [`aws/examples/sqs/`](aws/examples/sqs/) | SQS | Queues, single/batch send, receive, delete |
+| [`aws/examples/lambda/`](aws/examples/lambda/) | Lambda | Deploy a Node.js function, sync/async invoke |
+| [`aws/examples/terraform/`](aws/examples/terraform/) | Terraform | Full `terraform apply` against Floci (S3 + SQS) |
+
+See [`aws/examples/README.md`](aws/examples/README.md) for prerequisites and usage.
+
+### AWS Scripts Reference
 
 | Script | Description |
 |--------|-------------|
@@ -183,88 +152,11 @@ aws lambda invoke \
 | `bash aws/scripts/stop.sh` | Stop the container (data is preserved) |
 | `bash aws/scripts/teardown.sh` | Stop and remove the container (data preserved) |
 | `bash aws/scripts/teardown.sh --purge` | Stop, remove container, delete volume and image |
-| `bash aws/scripts/env.sh` | Print five `export` statements (endpoint, credentials, profile) — use with `eval $(...)` |
+| `bash aws/scripts/env.sh` | Print five `export` statements — use with `eval $(...)` |
 | `bash aws/scripts/test.sh` | Run S3, SQS, and Lambda smoke tests |
 | `bash aws/scripts/test.sh --skip-lambda` | Smoke tests without Lambda |
 
----
-
-## Docker Compose (alternative)
-
-```bash
-# Docker
-docker compose -f aws/docker-compose.yml up -d
-
-# Podman
-export CONTAINER_SOCK=/var/run/docker.sock
-podman-compose -f aws/docker-compose.yml up -d
-```
-
-Data is stored in `aws/data/` relative to the project root.
-
----
-
-## Data Persistence
-
-| Method | How | Survives `stop`? | Survives `teardown --purge`? |
-|--------|-----|:---:|:---:|
-| Named volume (default) | Automatic — `floci-data` Docker/Podman volume | ✅ | ❌ |
-| Custom host directory | `--persist ./data` flag or docker-compose | ✅ | ✅ |
-
----
-
-## Troubleshooting
-
-### `InvalidClientTokenId` error on any AWS CLI command
-You have real AWS credentials in `~/.aws/credentials` that are overriding the Floci test credentials. This happens even when `AWS_ENDPOINT_URL` is set — AWS CLI v1 still uses the credential file.
-
-Run `eval $(bash aws/scripts/env.sh)` which now also exports `AWS_PROFILE=floci` (a profile with `key=test`) to fully override the real profile:
-```bash
-eval $(bash aws/scripts/env.sh)
-```
-Then verify all five vars are set:
-```bash
-echo $AWS_ENDPOINT_URL $AWS_ACCESS_KEY_ID $AWS_PROFILE
-# expected: http://localhost:4566 test floci
-```
-
-### `aws s3 ls` returns nothing / hits real AWS
-The `AWS_ENDPOINT_URL` variable is not set in this terminal. Run:
-```bash
-eval $(bash aws/scripts/env.sh)
-```
-
-### `aws s3 ls bucket` — NoSuchBucket error
-The correct syntax is `aws s3 ls s3://bucket-name` (the `s3://` prefix is required):
-```bash
-aws s3 ls s3://bkt1
-```
-
-### Floci UI shows "Connection refused"
-The container socket is not mounted correctly. Stop and restart:
-```bash
-bash aws/scripts/stop.sh && bash aws/scripts/start.sh
-```
-
-### View container logs
-```bash
-# Podman
-podman logs -f floci
-
-# Docker
-docker logs -f floci
-```
-
-### Full reset
-```bash
-bash aws/scripts/teardown.sh --purge
-bash aws/scripts/install.sh
-bash aws/scripts/start.sh
-```
-
----
-
-## Endpoint & Credentials Summary
+### AWS Endpoint & Credentials Summary
 
 | Setting | Value |
 |---------|-------|
@@ -273,3 +165,399 @@ bash aws/scripts/start.sh
 | Secret Access Key | `test` |
 | Default Region | `us-east-1` |
 | Web UI | `http://localhost:4566/_floci/ui` |
+
+### Docker Compose (AWS)
+
+```bash
+docker compose -f aws/docker-compose.yml up -d
+```
+
+Data is stored in `aws/data/` relative to the project root.
+
+---
+
+## Azure
+
+### Quick Start
+
+```bash
+# 1. Install dependencies (Docker/Podman + Azure CLI + Azurite image)
+bash azure/scripts/install.sh
+
+# 2. Start Azurite
+bash azure/scripts/start.sh
+
+# 3. Set environment variables
+eval $(bash azure/scripts/env.sh)
+
+# 4. Verify
+az storage container list \
+  --account-name devstoreaccount1 \
+  --blob-endpoint http://127.0.0.1:10000/devstoreaccount1 \
+  --account-key Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==
+```
+
+### Azure Endpoints & Credentials
+
+Azurite uses a fixed well-known account for local development:
+
+| Setting | Value |
+|---------|-------|
+| Account Name | `devstoreaccount1` |
+| Account Key | `Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==` |
+| Blob endpoint | `http://127.0.0.1:10000/devstoreaccount1` |
+| Queue endpoint | `http://127.0.0.1:10001/devstoreaccount1` |
+| Table endpoint | `http://127.0.0.1:10002/devstoreaccount1` |
+
+### Azure CLI Usage
+
+> ⚠️ **Before running any Azure CLI command**, export the credentials:
+> ```bash
+> eval $(bash azure/scripts/env.sh)
+> ```
+
+#### Blob Storage
+
+```bash
+# Create a container
+az storage container create \
+  --name my-container \
+  --account-name $AZURE_STORAGE_ACCOUNT \
+  --account-key $AZURE_STORAGE_KEY \
+  --blob-endpoint $AZURE_BLOB_ENDPOINT
+
+# Upload a blob
+az storage blob upload \
+  --container-name my-container \
+  --name file.txt \
+  --file ./file.txt \
+  --account-name $AZURE_STORAGE_ACCOUNT \
+  --account-key $AZURE_STORAGE_KEY \
+  --blob-endpoint $AZURE_BLOB_ENDPOINT
+
+# List blobs
+az storage blob list \
+  --container-name my-container \
+  --account-name $AZURE_STORAGE_ACCOUNT \
+  --account-key $AZURE_STORAGE_KEY \
+  --blob-endpoint $AZURE_BLOB_ENDPOINT \
+  --output table
+
+# Download a blob
+az storage blob download \
+  --container-name my-container \
+  --name file.txt \
+  --file ./file-downloaded.txt \
+  --account-name $AZURE_STORAGE_ACCOUNT \
+  --account-key $AZURE_STORAGE_KEY \
+  --blob-endpoint $AZURE_BLOB_ENDPOINT
+```
+
+#### Queue Storage
+
+```bash
+# Create a queue
+az storage queue create \
+  --name my-queue \
+  --account-name $AZURE_STORAGE_ACCOUNT \
+  --account-key $AZURE_STORAGE_KEY \
+  --queue-endpoint $AZURE_QUEUE_ENDPOINT
+
+# Send a message
+az storage message put \
+  --queue-name my-queue \
+  --content "hello world" \
+  --account-name $AZURE_STORAGE_ACCOUNT \
+  --account-key $AZURE_STORAGE_KEY \
+  --queue-endpoint $AZURE_QUEUE_ENDPOINT
+
+# Peek at messages (non-destructive)
+az storage message peek \
+  --queue-name my-queue \
+  --account-name $AZURE_STORAGE_ACCOUNT \
+  --account-key $AZURE_STORAGE_KEY \
+  --queue-endpoint $AZURE_QUEUE_ENDPOINT
+```
+
+#### Table Storage
+
+```bash
+# Create a table
+az storage table create \
+  --name myusers \
+  --account-name $AZURE_STORAGE_ACCOUNT \
+  --account-key $AZURE_STORAGE_KEY \
+  --table-endpoint $AZURE_TABLE_ENDPOINT
+
+# Insert an entity
+az storage entity insert \
+  --table-name myusers \
+  --entity PartitionKey=users RowKey=1 name=Alice \
+  --account-name $AZURE_STORAGE_ACCOUNT \
+  --account-key $AZURE_STORAGE_KEY \
+  --table-endpoint $AZURE_TABLE_ENDPOINT
+
+# Query an entity
+az storage entity show \
+  --table-name myusers \
+  --partition-key users \
+  --row-key 1 \
+  --account-name $AZURE_STORAGE_ACCOUNT \
+  --account-key $AZURE_STORAGE_KEY \
+  --table-endpoint $AZURE_TABLE_ENDPOINT
+```
+
+### Azure Examples
+
+The [`azure/examples/`](azure/examples/) folder contains self-contained, runnable examples:
+
+| Directory | Service | What it covers |
+|-----------|---------|----------------|
+| [`azure/examples/blob/`](azure/examples/blob/) | Blob Storage | Containers, upload/download, list, delete |
+| [`azure/examples/queue/`](azure/examples/queue/) | Queue Storage | Queues, send/peek/receive messages |
+| [`azure/examples/table/`](azure/examples/table/) | Table Storage | Tables, insert/query/delete entities |
+
+See [`azure/examples/README.md`](azure/examples/README.md) for prerequisites and usage.
+
+### Azure Scripts Reference
+
+| Script | Description |
+|--------|-------------|
+| `bash azure/scripts/install.sh` | Install Homebrew, container runtime, Azure CLI, and pull the Azurite image |
+| `bash azure/scripts/install.sh --docker` | Force Docker Desktop |
+| `bash azure/scripts/install.sh --podman` | Force Podman |
+| `bash azure/scripts/start.sh` | Start the Azurite container |
+| `bash azure/scripts/start.sh --persist ./data` | Start with a custom host directory for persistence |
+| `bash azure/scripts/stop.sh` | Stop the container (data is preserved) |
+| `bash azure/scripts/teardown.sh` | Stop and remove the container (data preserved) |
+| `bash azure/scripts/teardown.sh --purge` | Stop, remove container, delete volume and image |
+| `bash azure/scripts/env.sh` | Print `export` statements — use with `eval $(...)` |
+| `bash azure/scripts/test.sh` | Run Blob, Queue, and Table smoke tests |
+
+### Docker Compose (Azure)
+
+```bash
+docker compose -f azure/docker-compose.yml up -d
+```
+
+Data is stored in `azure/data/` relative to the project root.
+
+---
+
+## GCP
+
+### Quick Start
+
+```bash
+# 1. Install dependencies (Docker/Podman + Google Cloud SDK + emulator images)
+bash gcp/scripts/install.sh
+
+# 2. Start GCS + Pub/Sub emulators
+bash gcp/scripts/start.sh
+
+# 3. Set environment variables
+eval $(bash gcp/scripts/env.sh)
+
+# 4. Verify GCS
+curl http://localhost:4443/storage/v1/b?project=floci-project
+
+# 5. Verify Pub/Sub
+curl http://localhost:8085/v1/projects/floci-project/topics
+```
+
+Both emulators start independently. Use `--gcs-only` or `--pubsub-only` to start just one.
+
+### GCP Endpoints & Credentials
+
+GCP emulators do not require real credentials — any project ID works.
+
+| Service | Endpoint | Environment variable |
+|---------|----------|---------------------|
+| Cloud Storage (GCS) | `http://localhost:4443` | `STORAGE_EMULATOR_HOST` |
+| Pub/Sub | `localhost:8085` | `PUBSUB_EMULATOR_HOST` |
+| Project ID | `floci-project` | `GOOGLE_CLOUD_PROJECT` |
+
+### GCS Usage (via REST API)
+
+```bash
+# List buckets
+curl http://localhost:4443/storage/v1/b?project=floci-project
+
+# Create a bucket
+curl -X POST http://localhost:4443/storage/v1/b?project=floci-project \
+  -H "Content-Type: application/json" \
+  -d '{"name":"my-bucket"}'
+
+# Upload an object
+curl -X POST \
+  "http://localhost:4443/upload/storage/v1/b/my-bucket/o?uploadType=media&name=hello.txt" \
+  -H "Content-Type: text/plain" \
+  --data-binary "Hello from Floci GCP!"
+
+# Download an object
+curl "http://localhost:4443/storage/v1/b/my-bucket/o/hello.txt?alt=media"
+
+# Delete an object
+curl -X DELETE "http://localhost:4443/storage/v1/b/my-bucket/o/hello.txt"
+
+# Delete a bucket
+curl -X DELETE "http://localhost:4443/storage/v1/b/my-bucket"
+```
+
+### Pub/Sub Usage (via REST API)
+
+```bash
+PROJECT=floci-project
+BASE=http://localhost:8085
+
+# Create a topic
+curl -X PUT "$BASE/v1/projects/$PROJECT/topics/my-topic" \
+  -H "Content-Type: application/json" -d '{}'
+
+# Create a subscription
+curl -X PUT "$BASE/v1/projects/$PROJECT/subscriptions/my-sub" \
+  -H "Content-Type: application/json" \
+  -d "{\"topic\":\"projects/$PROJECT/topics/my-topic\"}"
+
+# Publish a message (data must be base64-encoded)
+MSG=$(echo -n "Hello from Floci!" | base64)
+curl -X POST "$BASE/v1/projects/$PROJECT/topics/my-topic:publish" \
+  -H "Content-Type: application/json" \
+  -d "{\"messages\":[{\"data\":\"$MSG\"}]}"
+
+# Pull messages
+curl -X POST "$BASE/v1/projects/$PROJECT/subscriptions/my-sub:pull" \
+  -H "Content-Type: application/json" \
+  -d '{"maxMessages":1}'
+```
+
+### GCP Examples
+
+The [`gcp/examples/`](gcp/examples/) folder contains self-contained, runnable examples:
+
+| Directory | Service | What it covers |
+|-----------|---------|----------------|
+| [`gcp/examples/gcs/`](gcp/examples/gcs/) | Cloud Storage (GCS) | Buckets, upload/download, list, delete |
+| [`gcp/examples/pubsub/`](gcp/examples/pubsub/) | Pub/Sub | Topics, subscriptions, publish, pull, ack |
+
+See [`gcp/examples/README.md`](gcp/examples/README.md) for prerequisites and usage.
+
+### GCP Scripts Reference
+
+| Script | Description |
+|--------|-------------|
+| `bash gcp/scripts/install.sh` | Install Homebrew, container runtime, Google Cloud SDK, and pull emulator images |
+| `bash gcp/scripts/install.sh --docker` | Force Docker Desktop |
+| `bash gcp/scripts/install.sh --podman` | Force Podman |
+| `bash gcp/scripts/start.sh` | Start GCS + Pub/Sub emulators |
+| `bash gcp/scripts/start.sh --gcs-only` | Start GCS emulator only |
+| `bash gcp/scripts/start.sh --pubsub-only` | Start Pub/Sub emulator only |
+| `bash gcp/scripts/stop.sh` | Stop all GCP emulators (data is preserved) |
+| `bash gcp/scripts/stop.sh --gcs-only` | Stop GCS emulator only |
+| `bash gcp/scripts/stop.sh --pubsub-only` | Stop Pub/Sub emulator only |
+| `bash gcp/scripts/teardown.sh` | Stop and remove containers (data preserved) |
+| `bash gcp/scripts/teardown.sh --purge` | Stop, remove containers, delete volumes and images |
+| `bash gcp/scripts/env.sh` | Print `export` statements — use with `eval $(...)` |
+| `bash gcp/scripts/test.sh` | Run GCS and Pub/Sub smoke tests |
+| `bash gcp/scripts/test.sh --skip-pubsub` | Smoke tests without Pub/Sub |
+
+### Docker Compose (GCP)
+
+```bash
+docker compose -f gcp/docker-compose.yml up -d
+```
+
+GCS data is stored in the `floci-gcs-data` named volume. Pub/Sub state is in-memory and resets on restart.
+
+---
+
+## Data Persistence
+
+| Cloud | Method | Survives `stop`? | Survives `teardown --purge`? |
+|-------|--------|:---:|:---:|
+| AWS | Named volume `floci-data` (default) | ✅ | ❌ |
+| AWS | Custom host dir `--persist ./data` | ✅ | ✅ |
+| Azure | Named volume `floci-azure-data` (default) | ✅ | ❌ |
+| Azure | Custom host dir `--persist ./data` | ✅ | ✅ |
+| GCP (GCS) | Named volume `floci-gcs-data` | ✅ | ❌ |
+| GCP (Pub/Sub) | In-memory only | ❌ | ❌ |
+
+---
+
+## Troubleshooting
+
+### AWS: `InvalidClientTokenId` error
+You have real AWS credentials in `~/.aws/credentials` overriding Floci test credentials. Run:
+```bash
+eval $(bash aws/scripts/env.sh)
+```
+Then verify:
+```bash
+echo $AWS_ENDPOINT_URL $AWS_ACCESS_KEY_ID $AWS_PROFILE
+# expected: http://localhost:4566 test floci
+```
+
+### AWS: `aws s3 ls` returns nothing / hits real AWS
+The `AWS_ENDPOINT_URL` variable is not set. Run:
+```bash
+eval $(bash aws/scripts/env.sh)
+```
+
+### Azure: `ResourceNotFound` or connection refused
+The Azurite container is not running. Start it:
+```bash
+bash azure/scripts/start.sh
+```
+Then verify:
+```bash
+curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:10000/devstoreaccount1
+# expected: 400 (Azurite is up but the bare GET is malformed — that's normal)
+```
+
+### GCP: GCS returns connection refused
+The GCS emulator is not running. Start it:
+```bash
+bash gcp/scripts/start.sh --gcs-only
+```
+Then verify:
+```bash
+curl http://localhost:4443/storage/v1/b?project=floci-project
+# expected: {"kind":"storage#buckets"} or similar JSON
+```
+
+### GCP: Pub/Sub returns connection refused
+The Pub/Sub emulator may take up to 10 seconds to initialise. Check the logs:
+```bash
+docker logs floci-pubsub
+```
+Or restart:
+```bash
+bash gcp/scripts/stop.sh --pubsub-only && bash gcp/scripts/start.sh --pubsub-only
+```
+
+### View container logs
+
+```bash
+# AWS
+docker logs -f floci
+
+# Azure
+docker logs -f floci-azure
+
+# GCP
+docker logs -f floci-gcs
+docker logs -f floci-pubsub
+```
+
+### Full reset
+
+```bash
+# AWS
+bash aws/scripts/teardown.sh --purge && bash aws/scripts/install.sh && bash aws/scripts/start.sh
+
+# Azure
+bash azure/scripts/teardown.sh --purge && bash azure/scripts/install.sh && bash azure/scripts/start.sh
+
+# GCP
+bash gcp/scripts/teardown.sh --purge && bash gcp/scripts/install.sh && bash gcp/scripts/start.sh
+```
